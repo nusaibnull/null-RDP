@@ -1,0 +1,54 @@
+name: Asia RDP (Super Fast)
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: windows-2019
+
+    steps:
+      - name: Create User
+        run: |
+          $user = "null-RDP"
+          $password = "null@1337"
+          net user $user $password /add
+          net localgroup administrators $user /add
+          net localgroup "Remote Desktop Users" $user /add
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+      - name: Setup ngrok (Asia/Singapore)
+        env:
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        run: |
+          choco install ngrok -y
+          ngrok config add-authtoken $env:NGROK_AUTH_TOKEN
+          
+          # এখানে 'ap' (Asia Pacific) দেওয়া হলো
+          Start-Process -FilePath "ngrok" -ArgumentList "tcp --region ap 3389" -NoNewWindow
+          
+          Start-Sleep -Seconds 10
+
+          try {
+            $tunnels = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels"
+            $url = $tunnels.tunnels[0].public_url
+            $url = $url -replace "tcp://", ""
+            
+            Write-Host "==========================================================" -ForegroundColor Yellow
+            Write-Host "✅ SUCCESS! New Address (Asia):" -ForegroundColor Green
+            Write-Host "👉 $url" -ForegroundColor Cyan
+            Write-Host "👤 User: null-RDP" -ForegroundColor Cyan
+            Write-Host "🔑 Pass: null@1337" -ForegroundColor Cyan
+            Write-Host "==========================================================" -ForegroundColor Yellow
+          } catch {
+            Write-Host "❌ URL পাওয়া যায়নি।" -ForegroundColor Red
+          }
+
+      - name: Keep Alive
+        run: |
+          $seconds = 21600
+          while ($seconds -gt 0) {
+            Start-Sleep -Seconds 60
+            $seconds -= 60
+            Write-Host "Running... ($seconds sec left)"
+          }
