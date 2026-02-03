@@ -1,4 +1,4 @@
-name: Kali Linux (Simple Mode)
+name: Kali-Style GUI (Tailscale)
 
 on: workflow_dispatch
 
@@ -7,47 +7,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install Desktop (XFCE)
+      - name: Update & Install Desktop (XFCE)
         run: |
           sudo apt update
-          # বেসিক ডেস্কটপ এবং XRDP ইন্সটল
-          sudo apt install -y xfce4 xfce4-goodies xrdp dbus-x11
-          
-      - name: Create User (kali:kali)
-        run: |
-          # ১. ইউজার kali তৈরি
-          sudo useradd -m -s /bin/bash kali
-          # ২. পাসওয়ার্ড সেট করা: kali
-          echo "kali:kali" | sudo chpasswd
-          # ৩. সুডো পাওয়ার দেওয়া
-          sudo usermod -aG sudo kali
-
-      - name: Force Start XFCE (The Magic Fix)
-        run: |
-          # কোনো .xsession ফাইল লাগবে না, আমরা মেইন ফাইল এডিট করে দিচ্ছি
-          # এই কমান্ডগুলো RDP কে বাধ্য করবে XFCE ওপেন করতে
-          sudo sed -i 's/test -x \/etc\/X11\/Xsession/#test -x \/etc\/X11\/Xsession/g' /etc/xrdp/startwm.sh
-          sudo sed -i 's/exec \/bin\/sh \/etc\/X11\/Xsession/#exec \/bin\/sh \/etc\/X11\/Xsession/g' /etc/xrdp/startwm.sh
-          echo "startxfce4" | sudo tee -a /etc/xrdp/startwm.sh
-          
-          # সার্ভিস চালু
+          # XFCE ডেস্কটপ এনভায়রনমেন্ট এবং XRDP ইনস্টল করা হচ্ছে
+          sudo apt install -y xfce4 xfce4-goodies xrdp
           sudo systemctl enable xrdp
           sudo systemctl start xrdp
-
+          # XRDP কে XFCE ব্যবহার করতে বলা হচ্ছে
+          echo "xfce4-session" > ~/.xsession
+          
+      - name: Install Hacking Tools (Making it like Kali)
+        run: |
+          # কালির মেইন টুলসগুলো নামিয়ে দিচ্ছি
+          sudo apt install -y nmap sqlmap nikto git python3-pip net-tools neofetch
+          # তুই চাইলে এখানে আরও টুলস যোগ করতে পারিস
+          
+      - name: Create User (User: kali / Pass: kali)
+        run: |
+          # নতুন ইউজার তৈরি করা হচ্ছে
+          sudo useradd -m -s /bin/bash kali
+          # পাসওয়ার্ড সেট করা হচ্ছে: kali
+          echo "kali:kali" | sudo chpasswd
+          sudo adduser kali sudo
+          
       - name: Setup Tailscale
         env:
           TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
+          # Tailscale ইনস্টল এবং চালু করা
           curl -fsSL https://tailscale.com/install.sh | sh
-          sudo tailscale up --authkey $TAILSCALE_AUTHKEY --hostname "github-kali" --accept-routes
-
-      - name: Keep Alive (6 Hours)
+          sudo tailscale up --authkey $TAILSCALE_AUTHKEY --hostname "github-kali-linux" --accept-routes
+          
+      - name: Show Info & Keep Alive
         run: |
           echo "=========================================="
-          echo "✅ RDP Ready!"
-          echo "User: kali"
-          echo "Pass: kali"
-          echo "IP: Check Tailscale Dashboard"
+          echo "✅ Machine is Running!"
+          echo "Username: kali"
+          echo "Password: kali"
+          echo "Go to Tailscale Dashboard to get the IP"
           echo "=========================================="
+          # ৬ ঘন্টা চালু রাখার লুপ
           sleep 21600
           
