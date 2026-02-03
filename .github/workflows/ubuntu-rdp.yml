@@ -1,4 +1,4 @@
-name: Ubuntu RDP (Tailscale)
+name: Ubuntu RDP (Fixed)
 
 on: workflow_dispatch
 
@@ -7,17 +7,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Update & Install Desktop (XFCE)
+      - name: Update & Install Desktop (Final Fix)
         run: |
           sudo apt update
-          # Installing XFCE lightweight desktop and XRDP
-          sudo apt install -y xfce4 xfce4-goodies xrdp
+          # Installing XFCE, XRDP, and essential DBUS/XORG packages to fix the session error
+          sudo apt install -y xfce4 xfce4-goodies xrdp dbus-x11 xorg xorgxrdp
           sudo systemctl enable xrdp
           sudo systemctl start xrdp
 
-      - name: Create User (null-RDP)
+      - name: Create User & Fix Permissions
         run: |
-          # 1. Create new user
+          # 1. Create new user (null-RDP)
           sudo useradd -m -s /bin/bash null-RDP
           
           # 2. Set password (null@1337)
@@ -26,9 +26,16 @@ jobs:
           # 3. Grant sudo permissions
           sudo usermod -aG sudo null-RDP
           
-          # 4. Fix XFCE session for RDP (Very important)
-          echo "xfce4-session" | sudo tee /home/null-RDP/.xsession
+          # 4. Configure XFCE Session correctly
+          # This forces XFCE to start properly when connecting via RDP
+          echo "xfce4-session" > /home/null-RDP/.xsession
+          
+          # 5. Fix Ownership and Permissions (The most important part!)
           sudo chown null-RDP:null-RDP /home/null-RDP/.xsession
+          sudo chmod +x /home/null-RDP/.xsession
+          
+          # 6. Restart XRDP service to apply changes
+          sudo service xrdp restart
 
       - name: Setup Tailscale
         env:
