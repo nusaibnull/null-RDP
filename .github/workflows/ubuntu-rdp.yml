@@ -1,4 +1,4 @@
-name: Ubuntu RDP (Env Fix)
+name: Kali Linux (Simple Mode)
 
 on: workflow_dispatch
 
@@ -7,52 +7,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Update & Install Desktop
+      - name: Install Desktop (XFCE)
         run: |
           sudo apt update
-          # Installing XFCE, XRDP and required system components
-          sudo apt install -y xfce4 xfce4-goodies xrdp dbus-x11 xorg xorgxrdp x11-xserver-utils
+          # বেসিক ডেস্কটপ এবং XRDP ইন্সটল
+          sudo apt install -y xfce4 xfce4-goodies xrdp dbus-x11
+          
+      - name: Create User (kali:kali)
+        run: |
+          # ১. ইউজার kali তৈরি
+          sudo useradd -m -s /bin/bash kali
+          # ২. পাসওয়ার্ড সেট করা: kali
+          echo "kali:kali" | sudo chpasswd
+          # ৩. সুডো পাওয়ার দেওয়া
+          sudo usermod -aG sudo kali
+
+      - name: Force Start XFCE (The Magic Fix)
+        run: |
+          # কোনো .xsession ফাইল লাগবে না, আমরা মেইন ফাইল এডিট করে দিচ্ছি
+          # এই কমান্ডগুলো RDP কে বাধ্য করবে XFCE ওপেন করতে
+          sudo sed -i 's/test -x \/etc\/X11\/Xsession/#test -x \/etc\/X11\/Xsession/g' /etc/xrdp/startwm.sh
+          sudo sed -i 's/exec \/bin\/sh \/etc\/X11\/Xsession/#exec \/bin\/sh \/etc\/X11\/Xsession/g' /etc/xrdp/startwm.sh
+          echo "startxfce4" | sudo tee -a /etc/xrdp/startwm.sh
+          
+          # সার্ভিস চালু
           sudo systemctl enable xrdp
           sudo systemctl start xrdp
-
-      - name: Create User & Fix Environment Variables
-        run: |
-          # 1. Create User
-          sudo useradd -m -s /bin/bash null-RDP
-          echo "null-RDP:null@1337" | sudo chpasswd
-          sudo usermod -aG sudo null-RDP
-          
-          # 2. THE FIX: Force Environment Variables in .xsession
-          # This fixes the "must include /etc" error
-          echo "export XDG_CONFIG_DIRS=/etc/xdg" | sudo tee /home/null-RDP/.xsession
-          echo "export XDG_DATA_DIRS=/usr/share" | sudo tee -a /home/null-RDP/.xsession
-          echo "export XDG_CONFIG_HOME=/home/null-RDP/.config" | sudo tee -a /home/null-RDP/.xsession
-          echo "exec /usr/bin/startxfce4" | sudo tee -a /home/null-RDP/.xsession
-          
-          # 3. Permissions
-          sudo chown null-RDP:null-RDP /home/null-RDP/.xsession
-          sudo chmod +x /home/null-RDP/.xsession
-          
-          # 4. Extra Fix: Force it in XRDP startup script too
-          # Adding the fix to the top of the startwm.sh file
-          sudo sed -i '3 i export XDG_CONFIG_DIRS=/etc/xdg' /etc/xrdp/startwm.sh
-          
-          # 5. Restart Services
-          sudo service xrdp restart
 
       - name: Setup Tailscale
         env:
           TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
           curl -fsSL https://tailscale.com/install.sh | sh
-          sudo tailscale up --authkey $TAILSCALE_AUTHKEY --hostname "github-ubuntu-rdp" --accept-routes
+          sudo tailscale up --authkey $TAILSCALE_AUTHKEY --hostname "github-kali" --accept-routes
 
       - name: Keep Alive (6 Hours)
         run: |
           echo "=========================================="
-          echo "✅ Ubuntu RDP Running (Env Fixed)"
-          echo "User: null-RDP"
-          echo "Pass: null@1337"
+          echo "✅ RDP Ready!"
+          echo "User: kali"
+          echo "Pass: kali"
           echo "IP: Check Tailscale Dashboard"
           echo "=========================================="
           sleep 21600
+          
