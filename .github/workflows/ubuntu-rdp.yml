@@ -1,0 +1,51 @@
+name: Ubuntu RDP (Tailscale)
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Update & Install Desktop (XFCE)
+        run: |
+          sudo apt update
+          # Installing XFCE lightweight desktop and XRDP
+          sudo apt install -y xfce4 xfce4-goodies xrdp
+          sudo systemctl enable xrdp
+          sudo systemctl start xrdp
+
+      - name: Create User (null-RDP)
+        run: |
+          # 1. Create new user
+          sudo useradd -m -s /bin/bash null-RDP
+          
+          # 2. Set password (null@1337)
+          echo "null-RDP:null@1337" | sudo chpasswd
+          
+          # 3. Grant sudo permissions
+          sudo usermod -aG sudo null-RDP
+          
+          # 4. Fix XFCE session for RDP (Very important)
+          echo "xfce4-session" | sudo tee /home/null-RDP/.xsession
+          sudo chown null-RDP:null-RDP /home/null-RDP/.xsession
+
+      - name: Setup Tailscale
+        env:
+          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+        run: |
+          # Download and connect Tailscale
+          curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up --authkey $TAILSCALE_AUTHKEY --hostname "github-ubuntu-rdp" --accept-routes
+
+      - name: Keep Alive (6 Hours)
+        run: |
+          echo "=========================================="
+          echo "✅ Ubuntu RDP is Running!"
+          echo "User: null-RDP"
+          echo "Pass: null@1337"
+          echo "IP: Check Tailscale Dashboard"
+          echo "=========================================="
+          # 6 hours loop
+          sleep 21600
+          
