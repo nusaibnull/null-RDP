@@ -1,4 +1,4 @@
-name: Ubuntu RDP (Fixed v2)
+name: Ubuntu RDP (Ultimate Fix)
 
 on: workflow_dispatch
 
@@ -10,12 +10,12 @@ jobs:
       - name: Update & Install Desktop
         run: |
           sudo apt update
-          # Installing XFCE, XRDP, and essential system components
-          sudo apt install -y xfce4 xfce4-goodies xrdp dbus-x11 xorg xorgxrdp
+          # Installing XFCE, XRDP, and essential system components (added x11-xserver-utils)
+          sudo apt install -y xfce4 xfce4-goodies xrdp dbus-x11 xorg xorgxrdp x11-xserver-utils
           sudo systemctl enable xrdp
           sudo systemctl start xrdp
 
-      - name: Create User & Fix Permissions
+      - name: Create User & Fix RDP Session
         run: |
           # 1. Create new user (null-RDP)
           sudo useradd -m -s /bin/bash null-RDP
@@ -26,15 +26,20 @@ jobs:
           # 3. Grant sudo permissions
           sudo usermod -aG sudo null-RDP
           
-          # 4. Configure XFCE Session correctly (Fixed Permission Issue here)
-          # We use 'sudo tee' to force write the file as root
-          echo "xfce4-session" | sudo tee /home/null-RDP/.xsession > /dev/null
+          # 4. THE FIX: Configuring .xsession correctly for XFCE
+          # We use 'startxfce4' instead of session, and unset DBUS to prevent conflicts
+          echo "unset DBUS_SESSION_BUS_ADDRESS" | sudo tee /home/null-RDP/.xsession
+          echo "exec startxfce4" | sudo tee -a /home/null-RDP/.xsession
           
           # 5. Fix Ownership and Permissions
           sudo chown null-RDP:null-RDP /home/null-RDP/.xsession
           sudo chmod +x /home/null-RDP/.xsession
           
-          # 6. Restart XRDP service
+          # 6. Configure System-wide XRDP to use XFCE
+          sudo sed -i.bak '/test -x \/etc\/X11\/Xsession && exec \/etc\/X11\/Xsession/d' /etc/xrdp/startwm.sh
+          sudo sed -i 's/exec \/bin\/sh \/etc\/X11\/Xsession/exec \/usr\/bin\/startxfce4/' /etc/xrdp/startwm.sh
+          
+          # 7. Restart XRDP service
           sudo service xrdp restart
 
       - name: Setup Tailscale
